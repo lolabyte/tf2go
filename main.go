@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"flag"
 
 	"github.com/lolabyte/tf2go/gen"
 )
@@ -12,8 +12,15 @@ var (
 	outputDir         string
 )
 
+func init() {
+	flag.StringVar(&inputModulePath, "module", "", "path to a TF module")
+	flag.StringVar(&outputPackageName, "package", "", "name of the package to generate")
+	flag.StringVar(&outputDir, "out", "", "path to output directory (will create if not exists)")
+	flag.Parse()
+}
+
 func main() {
-	err := gen.GenerateTFModulePackage(os.Args[1], os.Args[2], os.Args[3])
+	err := gen.GenerateTFModulePackage(inputModulePath, outputDir, outputPackageName)
 	if err != nil {
 		panic(err)
 	}
