@@ -93,11 +93,11 @@ func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statemen
 	case "string":
 		return stmt.String()
 	case "list(bool)":
-		return stmt.List(jen.Bool())
+		return stmt.Index().Bool()
 	case "list(number)":
-		return stmt.List(jen.Int64())
+		return stmt.Index().Int64()
 	case "list(string)":
-		return stmt.List(jen.String())
+		return stmt.Index().String()
 	case "map(string)", "object":
 		return stmt.Map(jen.String()).String()
 	}
