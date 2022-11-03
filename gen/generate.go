@@ -21,6 +21,10 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 
 	vars := gatherVars(module)
 	out := jen.NewFile(packageName)
+
+	out.Commentf("//go:embed %s", path.Join(goModuleOutDir, "terraform", "*"))
+	out.Var().Id("tfModule").Qual("embed", "FS")
+
 	out.Type().Id("Variables").Struct(vars...).Line()
 
 	// Generate module struct
@@ -88,9 +92,6 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 }
 
 func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.Statement {
-	//fmt.Println(node.String())
-	//fmt.Printf("%T\n", node)
-
 	switch node := node.(type) {
 	case *ast.Type:
 		//fmt.Println("type")
