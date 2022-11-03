@@ -257,3 +257,21 @@ func (ot *ObjectTypeLiteral) String() string {
 
 	return out.String()
 }
+
+type MapTypeLiteral struct {
+	Token          token.Token
+	TypeExpression Expression
+}
+
+func (mt *MapTypeLiteral) expressionNode()      {}
+func (mt *MapTypeLiteral) TokenLiteral() string { return mt.Token.Literal }
+func (mt *MapTypeLiteral) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(mt.TokenLiteral())
+	out.WriteString("(")
+	out.WriteString(mt.TypeExpression.String())
+	out.WriteString(")")
+
+	return out.String()
+}

@@ -44,6 +44,8 @@ func New(l *lexer.Lexer) *TypeParser {
 	p.registerPrefix(token.STRING_TYPE, p.parseStringTypeLiteral)
 	p.registerPrefix(token.LIST_TYPE, p.parseListTypeLiteral)
 	p.registerPrefix(token.OBJECT_TYPE, p.parseObjectTypeLiteral)
+	p.registerPrefix(token.MAP_TYPE, p.parseMapTypeLiteral)
+	// TODO: Add token.TUPLE_TYPE. Should be very similar to LIST_TYPE
 
 	p.nextToken()
 	p.nextToken()
@@ -212,7 +214,6 @@ func (p *TypeParser) parseObjectLiteral() ast.Expression {
 
 		obj.KVPairs[key] = value
 
-		// FIXME: this needs to support the next item being a complex type definitions (E.g. list(string))
 		if !p.peekTokenIs(token.RIGHT_CURLY_BRACE) && !p.expectPeek(token.COMMA) {
 			return nil
 		}
@@ -242,10 +243,23 @@ func (p *TypeParser) parseListTypeLiteral() ast.Expression {
 
 	p.nextToken()
 	list.TypeExpression = p.parseExpression()
-	//list.TypeToken = p.currToken
 	p.nextToken()
 
 	return list
+}
+
+func (p *TypeParser) parseMapTypeLiteral() ast.Expression {
+	m := &ast.MapTypeLiteral{Token: p.currToken}
+
+	if !p.expectPeek(token.LEFT_PAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	m.TypeExpression = p.parseExpression()
+	p.nextToken()
+
+	return m
 }
 
 func (p *TypeParser) parseObjectTypeLiteral() ast.Expression {

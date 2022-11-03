@@ -110,6 +110,10 @@ func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.State
 		//fmt.Println("list()")
 		stmt = stmt.Index()
 		return eval(node.TypeExpression, stmt, tfv)
+	case *ast.MapTypeLiteral:
+		//fmt.Println("map()")
+		m := stmt.Map(jen.String())
+		return eval(node.TypeExpression, m, tfv)
 	case *ast.ObjectTypeLiteral:
 		//fmt.Println("{}")
 		var fields []jen.Code
@@ -117,7 +121,7 @@ func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.State
 			f := jen.Id(utils.SnakeToCamel(k.String()))
 			fields = append(fields, eval(v, f, tfv))
 		}
-		return jen.Id(structFieldNameForVar(tfv)).Struct(fields...)
+		return stmt.Struct(fields...)
 	}
 	return nil
 }
@@ -128,26 +132,6 @@ func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statemen
 
 	T := parser.ParseType()
 	return eval(T, stmt, v)
-
-	//switch v.Type {
-	//case "bool":
-	//	return stmt.Bool()
-	//case "number":
-	//	return stmt.Int64()
-	//case "string":
-	//	return stmt.String()
-	//case "list(bool)":
-	//	return stmt.Index().Bool()
-	//case "list(number)":
-	//	return stmt.Index().Int64()
-	//case "list(string)":
-	//	return stmt.Index().String()
-	//case "map(string)", "object":
-	//	return stmt.Map(jen.String()).String()
-	//default:
-	//	//fmt.Println(v.Type)
-	//}
-	//return nil
 }
 
 func structTagsForVar(v *tfconfig.Variable) map[string]string {
@@ -164,8 +148,15 @@ func structFieldNameForVar(v *tfconfig.Variable) string {
 func gatherVars(mod *tfconfig.Module) []jen.Code {
 	vars := make([]jen.Code, len(mod.Variables))
 	for _, v := range mod.Variables {
+		// Default any non-declared types to string
+		if v.Type == "" {
+			v.Type = "string"
+		}
 		f := tfVarToStructField(jen.Id(structFieldNameForVar(v)), v)
 		f = f.Tag(structTagsForVar(v))
+		if v.Description != "" {
+			f = f.Comment(v.Description)
+		}
 		vars = append(vars, f)
 	}
 
