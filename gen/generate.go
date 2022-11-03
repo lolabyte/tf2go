@@ -7,6 +7,9 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/hashicorp/terraform-config-inspect/tfconfig"
+	"github.com/lolabyte/tf2go/terraform/ast"
+	tfLexer "github.com/lolabyte/tf2go/terraform/lexer"
+	tfParser "github.com/lolabyte/tf2go/terraform/parser"
 	"github.com/lolabyte/tf2go/utils"
 )
 
@@ -84,24 +87,65 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 	return nil
 }
 
-func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statement {
-	switch v.Type {
-	case "bool":
+func eval(node ast.Node, stmt *jen.Statement) *jen.Statement {
+	fmt.Println("call")
+	switch node := node.(type) {
+	case *ast.Type:
+		for _, s := range node.Statements {
+			return eval(s, stmt)
+		}
+	case *ast.BoolTypeLiteral:
+		fmt.Println("bool")
 		return stmt.Bool()
-	case "number":
+	case *ast.NumberTypeLiteral:
+		fmt.Println("number")
 		return stmt.Int64()
-	case "string":
+	case *ast.StringTypeLiteral:
+		fmt.Println("string")
 		return stmt.String()
-	case "list(bool)":
-		return stmt.Index().Bool()
-	case "list(number)":
-		return stmt.Index().Int64()
-	case "list(string)":
-		return stmt.Index().String()
-	case "map(string)", "object":
-		return stmt.Map(jen.String()).String()
+	case *ast.ListTypeLiteral:
+		fmt.Println("list()")
+		stmt = stmt.Index()
+		return eval(node.TypeExpression, stmt)
+	case *ast.ObjectTypeLiteral:
+		fmt.Println("object()")
+		var fields []jen.Code
+		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
+			f := jen.Id(utils.SnakeToCamel(k.String()))
+			fields = append(fields, eval(v, f))
+		}
+		return jen.Struct(fields...)
 	}
+
 	return nil
+}
+
+func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statement {
+	lexer := tfLexer.New(v.Type)
+	parser := tfParser.New(lexer)
+
+	T := parser.ParseType()
+	return eval(T, stmt)
+
+	//switch v.Type {
+	//case "bool":
+	//	return stmt.Bool()
+	//case "number":
+	//	return stmt.Int64()
+	//case "string":
+	//	return stmt.String()
+	//case "list(bool)":
+	//	return stmt.Index().Bool()
+	//case "list(number)":
+	//	return stmt.Index().Int64()
+	//case "list(string)":
+	//	return stmt.Index().String()
+	//case "map(string)", "object":
+	//	return stmt.Map(jen.String()).String()
+	//default:
+	//	//fmt.Println(v.Type)
+	//}
+	//return nil
 }
 
 func structTagsForVar(v *tfconfig.Variable) map[string]string {
