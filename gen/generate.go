@@ -87,36 +87,38 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 	return nil
 }
 
-func eval(node ast.Node, stmt *jen.Statement) *jen.Statement {
-	fmt.Println("call")
+func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.Statement {
+	//fmt.Println(node.String())
+	//fmt.Printf("%T\n", node)
+
 	switch node := node.(type) {
 	case *ast.Type:
+		//fmt.Println("type")
 		for _, s := range node.Statements {
-			return eval(s, stmt)
+			return eval(s.(*ast.ExpressionStatement).Expression, stmt, tfv)
 		}
 	case *ast.BoolTypeLiteral:
-		fmt.Println("bool")
+		//fmt.Println("bool")
 		return stmt.Bool()
 	case *ast.NumberTypeLiteral:
-		fmt.Println("number")
+		//fmt.Println("number")
 		return stmt.Int64()
 	case *ast.StringTypeLiteral:
-		fmt.Println("string")
+		//fmt.Println("string")
 		return stmt.String()
 	case *ast.ListTypeLiteral:
-		fmt.Println("list()")
+		//fmt.Println("list()")
 		stmt = stmt.Index()
-		return eval(node.TypeExpression, stmt)
+		return eval(node.TypeExpression, stmt, tfv)
 	case *ast.ObjectTypeLiteral:
-		fmt.Println("object()")
+		//fmt.Println("{}")
 		var fields []jen.Code
 		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
 			f := jen.Id(utils.SnakeToCamel(k.String()))
-			fields = append(fields, eval(v, f))
+			fields = append(fields, eval(v, f, tfv))
 		}
-		return jen.Struct(fields...)
+		return jen.Id(structFieldNameForVar(tfv)).Struct(fields...)
 	}
-
 	return nil
 }
 
@@ -125,7 +127,7 @@ func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statemen
 	parser := tfParser.New(lexer)
 
 	T := parser.ParseType()
-	return eval(T, stmt)
+	return eval(T, stmt, v)
 
 	//switch v.Type {
 	//case "bool":
@@ -166,5 +168,6 @@ func gatherVars(mod *tfconfig.Module) []jen.Code {
 		f = f.Tag(structTagsForVar(v))
 		vars = append(vars, f)
 	}
+
 	return vars
 }
