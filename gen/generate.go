@@ -7,6 +7,9 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/hashicorp/terraform-config-inspect/tfconfig"
+	"github.com/lolabyte/tf2go/terraform/ast"
+	tfLexer "github.com/lolabyte/tf2go/terraform/lexer"
+	tfParser "github.com/lolabyte/tf2go/terraform/parser"
 	"github.com/lolabyte/tf2go/utils"
 )
 
@@ -84,24 +87,51 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 	return nil
 }
 
-func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statement {
-	switch v.Type {
-	case "bool":
+func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.Statement {
+	//fmt.Println(node.String())
+	//fmt.Printf("%T\n", node)
+
+	switch node := node.(type) {
+	case *ast.Type:
+		//fmt.Println("type")
+		for _, s := range node.Statements {
+			return eval(s.(*ast.ExpressionStatement).Expression, stmt, tfv)
+		}
+	case *ast.BoolTypeLiteral:
+		//fmt.Println("bool")
 		return stmt.Bool()
-	case "number":
+	case *ast.NumberTypeLiteral:
+		//fmt.Println("number")
 		return stmt.Int64()
-	case "string":
+	case *ast.StringTypeLiteral:
+		//fmt.Println("string")
 		return stmt.String()
-	case "list(bool)":
-		return stmt.Index().Bool()
-	case "list(number)":
-		return stmt.Index().Int64()
-	case "list(string)":
-		return stmt.Index().String()
-	case "map(string)", "object":
-		return stmt.Map(jen.String()).String()
+	case *ast.ListTypeLiteral:
+		//fmt.Println("list()")
+		stmt = stmt.Index()
+		return eval(node.TypeExpression, stmt, tfv)
+	case *ast.MapTypeLiteral:
+		//fmt.Println("map()")
+		m := stmt.Map(jen.String())
+		return eval(node.TypeExpression, m, tfv)
+	case *ast.ObjectTypeLiteral:
+		//fmt.Println("{}")
+		var fields []jen.Code
+		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
+			f := jen.Id(utils.SnakeToCamel(k.String()))
+			fields = append(fields, eval(v, f, tfv))
+		}
+		return stmt.Struct(fields...)
 	}
 	return nil
+}
+
+func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statement {
+	lexer := tfLexer.New(v.Type)
+	parser := tfParser.New(lexer)
+
+	T := parser.ParseType()
+	return eval(T, stmt, v)
 }
 
 func structTagsForVar(v *tfconfig.Variable) map[string]string {
@@ -118,9 +148,17 @@ func structFieldNameForVar(v *tfconfig.Variable) string {
 func gatherVars(mod *tfconfig.Module) []jen.Code {
 	vars := make([]jen.Code, len(mod.Variables))
 	for _, v := range mod.Variables {
+		// Default any non-declared types to string
+		if v.Type == "" {
+			v.Type = "string"
+		}
 		f := tfVarToStructField(jen.Id(structFieldNameForVar(v)), v)
 		f = f.Tag(structTagsForVar(v))
+		if v.Description != "" {
+			f = f.Comment(v.Description)
+		}
 		vars = append(vars, f)
 	}
+
 	return vars
 }

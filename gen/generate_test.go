@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test__generateTFmodulePackage(t *testing.T) {
+func TestGenerateTFModulePackage(t *testing.T) {
 	t.Run("returns an error when the input module directory doesn't exist", func(t *testing.T) {
 		err := gen.GenerateTFModulePackage("does_not_exist", "out_dir", "test_module")
 		assert.Error(t, err)
