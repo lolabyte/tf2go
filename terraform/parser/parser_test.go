@@ -31,7 +31,11 @@ func TestParseListLiteral(t *testing.T) {
 }
 
 func TestParsingObjectLiteral(t *testing.T) {
-	input := `{a_number = 1, a_bool = true, string_list = [1,2,3]}`
+	input := `{
+		a_number = 1
+		a_bool = true
+		string_list = [1,2,3]
+	}`
 
 	l := lexer.New(input)
 	p := New(l)
@@ -95,11 +99,15 @@ func TestParseListTypeLiteral(t *testing.T) {
 		t.Fatalf("exp is not ast.ListTypeLiteral. got=%T", stmt.Expression)
 	}
 
-	assert.Equal(t, list.TypeExpression.String(), "string")
+	assert.Equal(t, "string", list.TypeExpression.String())
 }
 
 func TestParsingObjectTypeLiteral(t *testing.T) {
-	input := `object({ a_number = number, a_bool = bool, a_string_list = list(string) })`
+	input := `object({ 
+		a_number = number
+		a_bool = bool
+		a_string_list = list(string) 
+	})`
 
 	l := lexer.New(input)
 	p := New(l)
@@ -126,6 +134,37 @@ func TestParsingObjectTypeLiteral(t *testing.T) {
 	for key, _ := range objSpec.KVPairs {
 		assert.Equal(t, objSpec.KVPairs[key].String(), expectedObjSpec[key.String()])
 	}
+}
+
+func TestParseComplexType(t *testing.T) {
+	input := `
+		list(
+		  object({
+			name                     = string
+			ip_cidr_range            = string
+			private_ip_google_access = bool
+			purpose                  = string
+			secondary_ip_ranges = list(
+			  object({
+				range_name    = string
+				ip_cidr_range = string
+			  })
+			)
+		  })
+		)
+	  `
+
+	l := lexer.New(input)
+	p := New(l)
+	typeDef := p.ParseType()
+	checkParserErrors(t, p)
+
+	stmt := typeDef.Statements[0].(*ast.ExpressionStatement)
+	_, ok := stmt.Expression.(*ast.ListTypeLiteral)
+	if !ok {
+		t.Fatalf("exp is not ast.ListTypeLiteral. got=%T", stmt.Expression)
+	}
+
 }
 
 func testLiteralExpression(
