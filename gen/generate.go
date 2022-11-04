@@ -3,6 +3,7 @@ package gen
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 
 	"github.com/dave/jennifer/jen"
@@ -13,7 +14,9 @@ import (
 	"github.com/lolabyte/tf2go/utils"
 )
 
-func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, packageName string) error {
+const tfModuleEmbedDir = "terraform"
+
+func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageName string) error {
 	module, diags := tfconfig.LoadModule(tfModulePath)
 	if diags.HasErrors() {
 		return diags.Err()
@@ -22,7 +25,7 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 	vars := gatherVars(module)
 	out := jen.NewFile(packageName)
 
-	out.Commentf("//go:embed %s", path.Join(goModuleOutDir, "terraform", "*"))
+	out.Commentf("//go:embed %s", path.Join(tfModuleEmbedDir, "*"))
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
 	out.Type().Id("Variables").Struct(vars...).Line()
@@ -78,17 +81,27 @@ func GenerateTFModulePackage(tfModulePath string, goModuleOutDir string, package
 		jen.Return(jen.Id("nil")),
 	).Line()
 
-	err := os.MkdirAll(goModuleOutDir, os.ModePerm)
+	err := os.MkdirAll(outPackageDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create output dir: %v", err)
 	}
 
-	err = out.Save(path.Join(goModuleOutDir, fmt.Sprintf("%s.go", packageName)))
+	err = out.Save(path.Join(outPackageDir, fmt.Sprintf("%s.go", packageName)))
 	if err != nil {
 		return fmt.Errorf("failed to save module to file: %v", err)
 	}
 
+	copyDirectory(tfModulePath, path.Join(outPackageDir, tfModuleEmbedDir))
+
 	return nil
+}
+
+func copyDirectory(srcDir string, destDir string) {
+	cmd := exec.Command("cp", "-a", srcDir, destDir)
+	err := cmd.Run()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.Statement {
