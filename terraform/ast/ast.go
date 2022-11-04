@@ -91,7 +91,7 @@ func (ll *ListLiteral) String() string {
 	}
 
 	out.WriteString("[")
-	out.WriteString(strings.Join(elements, ","))
+	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString("]")
 
 	return out.String()
@@ -110,7 +110,7 @@ func (tl *TupleLiteral) String() string {
 	}
 
 	out.WriteString("(")
-	out.WriteString(strings.Join(elements, ","))
+	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString(")")
 
 	return out.String()
@@ -132,7 +132,7 @@ func (ol *ObjectLiteral) String() string {
 	}
 
 	out.WriteString("{")
-	out.WriteString(strings.Join(elements, ","))
+	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString("}")
 
 	return out.String()
