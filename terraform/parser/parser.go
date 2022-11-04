@@ -212,13 +212,15 @@ func (p *TypeParser) parseObjectLiteral() ast.Expression {
 		p.nextToken()
 		value := p.parseExpression()
 
-		obj.KVPairs[key] = value
-
-		if !p.peekTokenIs(token.RIGHT_CURLY_BRACE) && !p.expectPeek(token.COMMA) {
-			return nil
+		if p.peekTokenIs(token.COMMA) {
+			// Skip optional comma
+			p.nextToken()
 		}
+
+		obj.KVPairs[key] = value
 	}
 
+	p.nextToken()
 	return obj
 }
 
