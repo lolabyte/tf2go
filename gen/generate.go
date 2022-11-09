@@ -68,6 +68,8 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 			j.Panic(j.Err()),
 		).Line(),
 
+		j.Id("tf").Dot("SetLogger").Call(j.Qual("log", "Default").Call()),
+
 		j.Return(
 			j.Op("&").Id(structName).Values(
 				j.Dict{
@@ -75,7 +77,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 				},
 			),
 		),
-	)
+	).Line()
 
 	// Generate Init()
 	out.Func().Params(
@@ -112,7 +114,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 			),
 		).Line(),
 
-		j.Return(j.Id("nil")),
+		j.Return(j.Id("m").Dot("TF").Dot("Init").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
 	// Generate Apply()
@@ -122,7 +124,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "ApplyOption"),
 	).Error().Block(
-		j.Return(j.Id("nil")),
+		j.Return(j.Id("m").Dot("TF").Dot("Apply").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
 	// Generate Destroy()
@@ -132,7 +134,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "DestroyOption"),
 	).Error().Block(
-		j.Return(j.Id("nil")),
+		j.Return(j.Id("m").Dot("TF").Dot("Destroy").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
 	// Generate Plan()
@@ -141,8 +143,8 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	).Id("Plan").Params(
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "PlanOption"),
-	).Error().Block(
-		j.Return(j.Id("nil")),
+	).Parens(j.List(j.Bool(), j.Error())).Block(
+		j.Return(j.Id("m").Dot("TF").Dot("Plan").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
 	err := os.MkdirAll(outPackageDir, os.ModePerm)
