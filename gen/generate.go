@@ -5,8 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 
-	"github.com/dave/jennifer/jen"
+	j "github.com/dave/jennifer/jen"
 	"github.com/hashicorp/terraform-config-inspect/tfconfig"
 	"github.com/lolabyte/tf2go/terraform/ast"
 	tfLexer "github.com/lolabyte/tf2go/terraform/lexer"
@@ -23,7 +24,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	}
 
 	vars := gatherVars(module)
-	out := jen.NewFile(packageName)
+	out := j.NewFile(packageName)
 
 	out.Commentf("//go:embed %s", path.Join(tfModuleEmbedDir, "*"))
 	out.Var().Id("tfModule").Qual("embed", "FS")
@@ -33,52 +34,115 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	// Generate module struct
 	structName := utils.SnakeToCamel(packageName)
 	out.Type().Id(structName).Struct(
-		jen.Id("V").Id("Variables"),
-		jen.Id("TF").Op("*").Qual("github.com/hashicorp/terraform-exec/tfexec", "Terraform"),
+		j.Id("V").Id("Variables"),
+		j.Id("TF").Op("*").Qual("github.com/hashicorp/terraform-exec/tfexec", "Terraform"),
 	)
 
-	out.Func().Id(fmt.Sprintf("New%s", structName)).Params().Op("*").Id(structName).Block(
-		jen.Return(jen.Op("&").Id(structName)).Values(),
+	// Generate constructor
+	out.Func().Id(fmt.Sprintf("New%s", structName)).Params(
+		j.Id("workingDir").String(),
+	).Op("*").Id(structName).Block(
+		j.List(j.Id("execPath"), j.Err()).Op(":=").Qual("os/exec", "LookPath").Call(j.Lit("terraform")),
+		j.If(
+			j.Err().Op("==").Nil(),
+		).Block(
+			j.List(j.Id("execPath"), j.Err()).Op("=").Qual("path/filepath", "Abs").Call(j.Id("execPath")),
+			j.If(
+				j.Err().Op("!=").Nil(),
+			).Block(
+				j.Panic(j.Err()),
+			),
+		).Line(),
+
+		j.Err().Op("=").Qual("os", "Mkdir").Call(j.Id("workingDir"), j.Qual("os", "ModePerm")),
+		j.If(
+			j.Err().Op("!=").Nil().Op("&&").Op("!os").Dot("IsExist").Call(j.Err()),
+		).Block(
+			j.Panic(j.Err()),
+		).Line(),
+
+		j.List(j.Id("tf"), j.Err()).Op(":=").Qual("github.com/hashicorp/terraform-exec/tfexec", "NewTerraform").Call(j.Id("workingDir"), j.Id("execPath")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Panic(j.Err()),
+		).Line(),
+
+		j.Return(
+			j.Op("&").Id(structName).Values(
+				j.Dict{
+					j.Id("TF"): j.Id("tf"),
+				},
+			),
+		),
 	)
 
 	// Generate Init()
 	out.Func().Params(
-		jen.Id("m").Op("*").Id(structName),
+		j.Id("m").Op("*").Id(structName),
 	).Id("Init").Params(
-		jen.Id("ctx").Qual("context", "Context"),
-		jen.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "InitOption"),
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "InitOption"),
 	).Error().Block(
-		jen.Return(jen.Id("nil")),
+		j.List(j.Id("entries"), j.Err()).Op(":=").Id("tfModule").Dot("ReadDir").Call(j.Lit("terraform")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Panic(j.Err()),
+		).Line(),
+
+		j.For(j.List(j.Id("_"), j.Id("e"))).Op(":=").Range().Id("entries").Block(
+			j.Id("fpath").Op(":=").Qual("path", "Join").Call(j.Lit("terraform"), j.Id("e").Dot("Name").Call()),
+			j.List(j.Id("in"), j.Err()).Op(":=").Id("tfModule").Dot("ReadFile").Call(j.Id("fpath")),
+			j.If(
+				j.Err().Op("!=").Nil(),
+			).Block(
+				j.Panic(j.Err()),
+			).Line(),
+
+			j.Err().Op("=").Qual("os", "WriteFile").Call(
+				j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
+				j.Id("in"),
+				j.Qual("os", "ModePerm"),
+			),
+			j.If(
+				j.Err().Op("!=").Nil(),
+			).Block(
+				j.Panic(j.Err()),
+			),
+		).Line(),
+
+		j.Return(j.Id("nil")),
 	).Line()
 
 	// Generate Apply()
 	out.Func().Params(
-		jen.Id("m").Op("*").Id(structName),
+		j.Id("m").Op("*").Id(structName),
 	).Id("Apply").Params(
-		jen.Id("ctx").Qual("context", "Context"),
-		jen.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "ApplyOption"),
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "ApplyOption"),
 	).Error().Block(
-		jen.Return(jen.Id("nil")),
+		j.Return(j.Id("nil")),
 	).Line()
 
 	// Generate Destroy()
 	out.Func().Params(
-		jen.Id("m").Op("*").Id(structName),
+		j.Id("m").Op("*").Id(structName),
 	).Id("Destroy").Params(
-		jen.Id("ctx").Qual("context", "Context"),
-		jen.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "DestroyOption"),
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "DestroyOption"),
 	).Error().Block(
-		jen.Return(jen.Id("nil")),
+		j.Return(j.Id("nil")),
 	).Line()
 
 	// Generate Plan()
 	out.Func().Params(
-		jen.Id("m").Op("*").Id(structName),
+		j.Id("m").Op("*").Id(structName),
 	).Id("Plan").Params(
-		jen.Id("ctx").Qual("context", "Context"),
-		jen.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "PlanOption"),
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "PlanOption"),
 	).Error().Block(
-		jen.Return(jen.Id("nil")),
+		j.Return(j.Id("nil")),
 	).Line()
 
 	err := os.MkdirAll(outPackageDir, os.ModePerm)
@@ -91,20 +155,31 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		return fmt.Errorf("failed to save module to file: %v", err)
 	}
 
+	// Copy the Terraform module into the go:embed path
 	copyDirectory(tfModulePath, path.Join(outPackageDir, tfModuleEmbedDir))
 
 	return nil
 }
 
 func copyDirectory(srcDir string, destDir string) {
-	cmd := exec.Command("cp", "-a", srcDir, destDir)
-	err := cmd.Run()
+	src, err := filepath.Abs(srcDir)
+	if err != nil {
+		panic(err)
+	}
+
+	dest, err := filepath.Abs(destDir)
+	if err != nil {
+		panic(err)
+	}
+
+	cmd := exec.Command("cp", "-a", src, dest)
+	err = cmd.Run()
 	if err != nil {
 		panic(err)
 	}
 }
 
-func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.Statement {
+func eval(node ast.Node, stmt *j.Statement, tfv *tfconfig.Variable) *j.Statement {
 	switch node := node.(type) {
 	case *ast.Type:
 		//fmt.Println("type")
@@ -126,21 +201,21 @@ func eval(node ast.Node, stmt *jen.Statement, tfv *tfconfig.Variable) *jen.State
 		return eval(node.TypeExpression, stmt, tfv)
 	case *ast.MapTypeLiteral:
 		//fmt.Println("map()")
-		m := stmt.Map(jen.String())
+		m := stmt.Map(j.String())
 		return eval(node.TypeExpression, m, tfv)
 	case *ast.ObjectTypeLiteral:
 		//fmt.Println("{}")
-		var fields []jen.Code
+		var fields []j.Code
 		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
-			f := jen.Id(utils.SnakeToCamel(k.String()))
-			fields = append(fields, eval(v, f, tfv))
+			f := j.Id(utils.SnakeToCamel(k.String()))
+			fields = append(fields, eval(v, f, tfv).Tag(structTagsForField(k.String())))
 		}
 		return stmt.Struct(fields...)
 	}
 	return nil
 }
 
-func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statement {
+func tfVarToStructField(stmt *j.Statement, v *tfconfig.Variable) *j.Statement {
 	lexer := tfLexer.New(v.Type)
 	parser := tfParser.New(lexer)
 
@@ -148,9 +223,9 @@ func tfVarToStructField(stmt *jen.Statement, v *tfconfig.Variable) *jen.Statemen
 	return eval(T, stmt, v)
 }
 
-func structTagsForVar(v *tfconfig.Variable) map[string]string {
+func structTagsForField(name string) map[string]string {
 	tags := map[string]string{
-		"json": fmt.Sprintf("%s,omitempty", v.Name),
+		"json": fmt.Sprintf("%s,omitempty", name),
 	}
 	return tags
 }
@@ -159,15 +234,15 @@ func structFieldNameForVar(v *tfconfig.Variable) string {
 	return utils.SnakeToCamel(v.Name)
 }
 
-func gatherVars(mod *tfconfig.Module) []jen.Code {
-	vars := make([]jen.Code, len(mod.Variables))
+func gatherVars(mod *tfconfig.Module) []j.Code {
+	vars := make([]j.Code, len(mod.Variables))
 	for _, v := range mod.Variables {
 		// Default any non-declared types to string
 		if v.Type == "" {
 			v.Type = "string"
 		}
-		f := tfVarToStructField(jen.Id(structFieldNameForVar(v)), v)
-		f = f.Tag(structTagsForVar(v))
+		f := tfVarToStructField(j.Id(structFieldNameForVar(v)), v)
+		f = f.Tag(structTagsForField(v.Name))
 		if v.Description != "" {
 			f = f.Comment(v.Description)
 		}

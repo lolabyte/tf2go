@@ -6,6 +6,7 @@ require (
 	github.com/dave/jennifer v1.6.0
 	github.com/hashicorp/terraform-config-inspect v0.0.0-20221012204812-413b69327090
 	github.com/hashicorp/terraform-exec v0.17.3
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/stretchr/testify v1.3.0
 )
 
