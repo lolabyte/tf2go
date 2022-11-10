@@ -29,7 +29,31 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	out.Commentf("//go:embed %s", path.Join(tfModuleEmbedDir, "*"))
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
-	out.Type().Id("Variables").Struct(vars...).Line()
+	variablesStructName := "Variables"
+	out.Type().Id(variablesStructName).Struct(vars...).Line()
+
+	out.Func().Params(
+		j.Id("v").Id(variablesStructName),
+	).Id("WriteTFVarJSON").Params(
+		j.Id("workingDir").String(),
+	).Parens(j.List(j.String(), j.Error())).Block(
+		j.List(j.Id("b"), j.Err()).Op(":=").Qual("encoding/json", "Marshal").Call(j.Id("v")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Return(j.Lit(""), j.Err()),
+		).Line(),
+
+		j.Id("outfile").Op(":=").Qual("path", "Join").Call(j.Id("workingDir"), j.Lit("terraform.tfvar.json")),
+		j.Err().Op("=").Qual("os", "WriteFile").Call(j.Id("outfile"), j.Id("b"), j.Qual("os", "ModePerm")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Return(j.Lit(""), j.Qual("fmt", "Errorf").Call(j.Lit("failed to write terraform.tfvar.json: %v"), j.Err())),
+		).Line(),
+
+		j.Return(j.Id("outfile"), j.Nil()),
+	).Line()
 
 	// Generate module struct
 	structName := utils.SnakeToCamel(packageName)
@@ -78,6 +102,13 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 			),
 		),
 	).Line()
+
+	// Generate Vars()
+	out.Func().Params(
+		j.Id("m").Op("*").Id(structName),
+	).Id("Vars").Params().Qual("github.com/lolabyte/tf2go/terraform", "TFVars").Block(
+		j.Return(j.Id("m").Dot("V")),
+	)
 
 	// Generate Init()
 	out.Func().Params(
