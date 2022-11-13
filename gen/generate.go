@@ -23,17 +23,15 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		return diags.Err()
 	}
 
-	vars := gatherVars(module)
 	out := j.NewFile(packageName)
 
 	out.Commentf("//go:embed %s", path.Join(tfModuleEmbedDir, "*"))
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
-	variablesStructName := "Variables"
-	out.Type().Id(variablesStructName).Struct(vars...).Line()
+	generateVarStructs(out, module)
 
 	out.Func().Params(
-		j.Id("v").Id(variablesStructName),
+		j.Id("v").Id("Variables"),
 	).Id("WriteTFVarJSON").Params(
 		j.Id("workingDir").String(),
 	).Parens(j.List(j.String(), j.Error())).Block(
@@ -178,6 +176,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		j.Return(j.Id("m").Dot("TF").Dot("Plan").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
+	// Copy the Terraform module to the go:embed path
 	err := os.MkdirAll(outPackageDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create output dir: %v", err)
@@ -188,7 +187,6 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		return fmt.Errorf("failed to save module to file: %v", err)
 	}
 
-	// Copy the Terraform module into the go:embed path
 	copyDirectory(tfModulePath, path.Join(outPackageDir, tfModuleEmbedDir))
 
 	return nil
@@ -212,48 +210,60 @@ func copyDirectory(srcDir string, destDir string) {
 	}
 }
 
-func eval(node ast.Node, stmt *j.Statement, tfv *tfconfig.Variable) *j.Statement {
+func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Statement {
 	switch node := node.(type) {
 	case *ast.Type:
-		//fmt.Println("type")
 		for _, s := range node.Statements {
-			return eval(s.(*ast.ExpressionStatement).Expression, stmt, tfv)
+			return eval(src, s.(*ast.ExpressionStatement).Expression, stmt, name)
 		}
 	case *ast.BoolTypeLiteral:
-		//fmt.Println("bool")
 		return stmt.Bool()
 	case *ast.NumberTypeLiteral:
-		//fmt.Println("number")
 		return stmt.Int64()
 	case *ast.StringTypeLiteral:
-		//fmt.Println("string")
 		return stmt.String()
 	case *ast.ListTypeLiteral:
-		//fmt.Println("list()")
-		stmt = stmt.Index()
-		return eval(node.TypeExpression, stmt, tfv)
+		return eval(src, node.TypeExpression, stmt.Index(), name)
 	case *ast.MapTypeLiteral:
-		//fmt.Println("map()")
 		m := stmt.Map(j.String())
-		return eval(node.TypeExpression, m, tfv)
+		return eval(src, node.TypeExpression, m, name)
 	case *ast.ObjectTypeLiteral:
-		//fmt.Println("{}")
 		var fields []j.Code
+
 		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
-			f := j.Id(utils.SnakeToCamel(k.String()))
-			fields = append(fields, eval(v, f, tfv).Tag(structTagsForField(k.String())))
+			structName := utils.SnakeToCamel(k.String())
+			tag := structTagsForField(k.String())
+			field := j.Id(structName)
+
+			switch n := v.(type) {
+			case *ast.ObjectTypeLiteral:
+				var innerFields []j.Code
+				for kk, vv := range n.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
+					innerFieldName := utils.SnakeToCamel(kk.String())
+					innerFields = append(innerFields, eval(src, vv, j.Id(innerFieldName), kk.String()).Tag(structTagsForField(kk.String())))
+				}
+				// Create a struct for the field type
+				src.Type().Id(structName).Struct(innerFields...)
+				fields = append(fields, field.Id(structName).Tag(tag))
+			case *ast.ListTypeLiteral:
+				fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
+			default:
+				fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
+			}
 		}
-		return stmt.Struct(fields...)
+
+		structName := utils.SnakeToCamel(name)
+		src.Type().Id(structName).Struct(fields...).Line()
+		return stmt.Id(structName)
 	}
 	return nil
 }
 
-func tfVarToStructField(stmt *j.Statement, v *tfconfig.Variable) *j.Statement {
+func astNodeType(v *tfconfig.Variable) ast.Node {
 	lexer := tfLexer.New(v.Type)
 	parser := tfParser.New(lexer)
 
-	T := parser.ParseType()
-	return eval(T, stmt, v)
+	return parser.ParseType()
 }
 
 func structTagsForField(name string) map[string]string {
@@ -267,20 +277,22 @@ func structFieldNameForVar(v *tfconfig.Variable) string {
 	return utils.SnakeToCamel(v.Name)
 }
 
-func gatherVars(mod *tfconfig.Module) []j.Code {
-	vars := make([]j.Code, len(mod.Variables))
+func generateVarStructs(src *j.File, mod *tfconfig.Module) {
+	var defaultVarStructFields []j.Code
 	for _, v := range mod.Variables {
-		// Default any non-declared types to string
 		if v.Type == "" {
 			v.Type = "string"
 		}
-		f := tfVarToStructField(j.Id(structFieldNameForVar(v)), v)
-		f = f.Tag(structTagsForField(v.Name))
+
+		fieldName := structFieldNameForVar(v)
+		tag := structTagsForField(v.Name)
+		field := eval(src, astNodeType(v), j.Id(fieldName), v.Name).Tag(tag)
 		if v.Description != "" {
-			f = f.Comment(v.Description)
+			field = field.Comment(v.Description)
 		}
-		vars = append(vars, f)
+
+		defaultVarStructFields = append(defaultVarStructFields, field)
 	}
 
-	return vars
+	src.Type().Id("Variables").Struct(defaultVarStructFields...).Line()
 }
