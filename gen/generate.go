@@ -225,8 +225,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 	case *ast.ListTypeLiteral:
 		return eval(src, node.TypeExpression, stmt.Index(), name)
 	case *ast.MapTypeLiteral:
-		m := stmt.Map(j.String())
-		return eval(src, node.TypeExpression, m, name)
+		return eval(src, node.TypeExpression, stmt.Map(j.String()), name)
 	case *ast.ObjectTypeLiteral:
 		var fields []j.Code
 
@@ -234,22 +233,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 			structName := utils.SnakeToCamel(k.String())
 			tag := structTagsForField(k.String())
 			field := j.Id(structName)
-
-			switch n := v.(type) {
-			case *ast.ObjectTypeLiteral:
-				var innerFields []j.Code
-				for kk, vv := range n.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
-					innerFieldName := utils.SnakeToCamel(kk.String())
-					innerFields = append(innerFields, eval(src, vv, j.Id(innerFieldName), kk.String()).Tag(structTagsForField(kk.String())))
-				}
-				// Create a struct for the field type
-				src.Type().Id(structName).Struct(innerFields...)
-				fields = append(fields, field.Id(structName).Tag(tag))
-			case *ast.ListTypeLiteral:
-				fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
-			default:
-				fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
-			}
+			fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
 		}
 
 		structName := utils.SnakeToCamel(name)
