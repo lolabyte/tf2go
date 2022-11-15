@@ -239,6 +239,8 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 		structName := utils.SnakeToCamel(name)
 		src.Type().Id(structName).Struct(fields...).Line()
 		return stmt.Id(structName)
+	case *ast.OptionalTypeLiteral:
+		return eval(src, node.TypeExpression, stmt, name)
 	}
 	return nil
 }
@@ -252,7 +254,7 @@ func astNodeType(v *tfconfig.Variable) ast.Node {
 
 func structTagsForField(name string) map[string]string {
 	tags := map[string]string{
-		"json": fmt.Sprintf("%s,omitempty", name),
+		"json": name,
 	}
 	return tags
 }

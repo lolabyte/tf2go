@@ -15,10 +15,9 @@ const (
 	STRING = "STRING"
 
 	// Keywords
-	OPTIONAL = "OPTIONAL"
-	NULL     = "NULL"
-	FALSE    = "FALSE"
-	TRUE     = "TRUE"
+	NULL  = "NULL"
+	FALSE = "FALSE"
+	TRUE  = "TRUE"
 
 	// Scalar type keywords
 	BOOL_TYPE   = "BOOL_TYPE"
@@ -26,10 +25,11 @@ const (
 	STRING_TYPE = "STRING_TYPE"
 
 	// Collection type keywords
-	LIST_TYPE   = "LIST_TYPE"
-	TUPLE_TYPE  = "TUPLE_TYPE"
-	MAP_TYPE    = "MAP_TYPE"
-	OBJECT_TYPE = "OBJECT_TYPE"
+	LIST_TYPE     = "LIST_TYPE"
+	TUPLE_TYPE    = "TUPLE_TYPE"
+	MAP_TYPE      = "MAP_TYPE"
+	OBJECT_TYPE   = "OBJECT_TYPE"
+	OPTIONAL_TYPE = "OPTIONAL_TYPE"
 
 	// Operators
 	ASSIGN = "="
@@ -63,7 +63,7 @@ var keywords = map[string]TokenType{
 	"tuple":    TUPLE_TYPE,
 	"map":      MAP_TYPE,
 	"object":   OBJECT_TYPE,
-	"optional": OPTIONAL,
+	"optional": OPTIONAL_TYPE,
 	"null":     NULL,
 	"true":     TRUE,
 	"false":    FALSE,

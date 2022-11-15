@@ -174,22 +174,23 @@ func (kv *KeyValueStatement) String() string {
 	return out.String()
 }
 
-type OptionalExpression struct {
-	Token        token.Token // token.OPTIONAL
-	TypeToken    token.Token // may be any Type Keyword token (e.g. token.LIST, token.NUMBER)
-	DefaultValue Expression
+type OptionalTypeLiteral struct {
+	Token          token.Token // token.OPTIONAL
+	TypeExpression Expression  // may be any Type Keyword token (e.g. token.LIST, token.NUMBER)
+	DefaultValue   Expression
 }
 
-func (os *OptionalExpression) expressionNode()      {}
-func (os *OptionalExpression) TokenLiteral() string { return os.Token.Literal }
-func (os *OptionalExpression) String() string {
+func (os *OptionalTypeLiteral) expressionNode()      {}
+func (os *OptionalTypeLiteral) TokenLiteral() string { return os.Token.Literal }
+func (os *OptionalTypeLiteral) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(os.TokenLiteral())
 	out.WriteString("(")
-	out.WriteString(os.TypeToken.Literal)
+	out.WriteString(os.TypeExpression.String())
 
 	if os.DefaultValue != nil {
+		out.WriteString(", ")
 		out.WriteString(os.DefaultValue.String())
 	}
 

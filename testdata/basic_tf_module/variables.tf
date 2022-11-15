@@ -1,3 +1,7 @@
+variable "local_file_path" {
+  type = string
+}
+
 variable "bool" {
   type = bool
 }
@@ -57,7 +61,7 @@ variable "list_of_number_with_default" {
   default = [98, 99, 100]
 }
 
-variable "list_of_object" {
+variable "things" {
   type = list(
     object(
       {
@@ -65,4 +69,30 @@ variable "list_of_object" {
       }
     )
   )
+}
+
+variable "container" {
+  type = object(
+    {
+      foo = string
+      bar = object(
+        {
+          baz = string
+          qux = list(
+            object(
+              {
+                bing = string
+                bong = number
+              }
+            )
+          )
+        }
+      )
+    }
+  )
+}
+
+
+variable "optional_list" {
+  type = optional(list(number), [])
 }

@@ -45,6 +45,7 @@ func New(l *lexer.Lexer) *TypeParser {
 	p.registerPrefix(token.LIST_TYPE, p.parseListTypeLiteral)
 	p.registerPrefix(token.OBJECT_TYPE, p.parseObjectTypeLiteral)
 	p.registerPrefix(token.MAP_TYPE, p.parseMapTypeLiteral)
+	p.registerPrefix(token.OPTIONAL_TYPE, p.parseOptionalTypeLiteral)
 	// TODO: Add token.TUPLE_TYPE. Should be very similar to LIST_TYPE
 
 	p.nextToken()
@@ -276,6 +277,26 @@ func (p *TypeParser) parseObjectTypeLiteral() ast.Expression {
 	p.nextToken()
 
 	return obj
+}
+
+func (p *TypeParser) parseOptionalTypeLiteral() ast.Expression {
+	opt := &ast.OptionalTypeLiteral{Token: p.currToken}
+
+	if !p.expectPeek(token.LEFT_PAREN) {
+		return nil
+	}
+
+	p.nextToken()
+	opt.TypeExpression = p.parseExpression()
+
+	if p.expectPeek(token.COMMA) {
+		p.nextToken()
+		opt.DefaultValue = p.parseExpression()
+	}
+
+	p.nextToken()
+
+	return opt
 }
 
 func (p *TypeParser) peekError(t token.TokenType) {
