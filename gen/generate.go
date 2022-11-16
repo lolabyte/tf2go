@@ -3,7 +3,6 @@ package gen
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 
@@ -13,6 +12,7 @@ import (
 	tfLexer "github.com/lolabyte/tf2go/terraform/lexer"
 	tfParser "github.com/lolabyte/tf2go/terraform/parser"
 	"github.com/lolabyte/tf2go/utils"
+	cp "github.com/otiai10/copy"
 )
 
 func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageName string, embedDir string) error {
@@ -175,7 +175,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	).Line()
 
 	// Copy the Terraform module to the go:embed path
-	err := os.MkdirAll(outPackageDir, os.ModePerm)
+	err := os.MkdirAll(path.Join(outPackageDir, embedDir), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create output dir: %v", err)
 	}
@@ -200,9 +200,7 @@ func copyDirectory(srcDir string, destDir string) {
 	if err != nil {
 		panic(err)
 	}
-
-	cmd := exec.Command("cp", "-a", src, dest)
-	err = cmd.Run()
+	err = cp.Copy(src, dest)
 	if err != nil {
 		panic(err)
 	}
