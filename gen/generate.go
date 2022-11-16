@@ -15,9 +15,7 @@ import (
 	"github.com/lolabyte/tf2go/utils"
 )
 
-const tfModuleEmbedDir = "terraform"
-
-func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageName string) error {
+func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageName string, embedDir string) error {
 	module, diags := tfconfig.LoadModule(tfModulePath)
 	if diags.HasErrors() {
 		return diags.Err()
@@ -25,7 +23,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 
 	out := j.NewFile(packageName)
 
-	out.Commentf("//go:embed %s", path.Join(tfModuleEmbedDir, "*"))
+	out.Commentf("//go:embed %s", path.Join(embedDir, "*"))
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
 	generateVarStructs(out, module)
@@ -187,7 +185,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		return fmt.Errorf("failed to save module to file: %v", err)
 	}
 
-	copyDirectory(tfModulePath, path.Join(outPackageDir, tfModuleEmbedDir))
+	copyDirectory(tfModulePath, path.Join(outPackageDir, embedDir))
 
 	return nil
 }
