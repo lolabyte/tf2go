@@ -200,7 +200,23 @@ func copyDirectory(srcDir string, destDir string) {
 	if err != nil {
 		panic(err)
 	}
-	err = cp.Copy(src, dest)
+
+	opts := cp.Options{
+		Skip: func(f os.FileInfo, src, dest string) (bool, error) {
+			if f.IsDir() && f.Name() == ".terraform" {
+				return true, nil
+			}
+			ok, err := path.Match("*/.teraform/*", src)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+			return false, nil
+		},
+	}
+	err = cp.Copy(src, dest, opts)
 	if err != nil {
 		panic(err)
 	}
@@ -213,7 +229,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 			return eval(src, s.(*ast.ExpressionStatement).Expression, stmt, name)
 		}
 	case *ast.BoolTypeLiteral:
-		return stmt.Bool()
+		return stmt.Op("*").Bool()
 	case *ast.NumberTypeLiteral:
 		return stmt.Int64()
 	case *ast.StringTypeLiteral:
@@ -250,7 +266,7 @@ func astNodeType(v *tfconfig.Variable) ast.Node {
 
 func structTagsForField(name string) map[string]string {
 	tags := map[string]string{
-		"json": name,
+		"json": fmt.Sprintf("%s,omitempty", name),
 	}
 	return tags
 }
