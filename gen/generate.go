@@ -174,6 +174,16 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		j.Return(j.Id("m").Dot("TF").Dot("Plan").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
+	// Generate Output()
+	out.Func().Params(
+		j.Id("m").Op("*").Id(structName),
+	).Id("Output").Params(
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputOption"),
+	).Parens(j.List(j.Map(j.String()).Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputMeta"), j.Error())).Block(
+		j.Return(j.Id("m").Dot("TF").Dot("Output").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
+	).Line()
+
 	// Copy the Terraform module to the go:embed path
 	err := os.MkdirAll(path.Join(outPackageDir, embedDir), os.ModePerm)
 	if err != nil {
