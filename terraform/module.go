@@ -2,6 +2,7 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/hashicorp/terraform-exec/tfexec"
 )
@@ -21,4 +22,15 @@ type Module interface {
 
 type TFVars interface {
 	WriteTFVarJSON(workingDir string) (string, error)
+}
+
+type OutputValue struct {
+	Sensitive bool
+	Type      json.RawMessage
+	Value     json.RawMessage
+}
+
+type TFOutput interface {
+	Get(key string) OutputValue
+	GetAll() map[string]OutputValue
 }
