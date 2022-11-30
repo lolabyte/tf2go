@@ -238,6 +238,8 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 		for _, s := range node.Statements {
 			return eval(src, s.(*ast.ExpressionStatement).Expression, stmt, name)
 		}
+	case *ast.AnyTypeLiteral:
+		return stmt.Interface()
 	case *ast.BoolTypeLiteral:
 		return stmt.Op("*").Bool()
 	case *ast.NumberTypeLiteral:
@@ -247,7 +249,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 	case *ast.ListTypeLiteral:
 		return eval(src, node.TypeExpression, stmt.Index(), name)
 	case *ast.MapTypeLiteral:
-		return eval(src, node.TypeExpression, stmt.Map(j.String()), name)
+		return eval(src, node.TypeExpression, stmt.Op("*").Map(j.String()), name)
 	case *ast.ObjectTypeLiteral:
 		var fields []j.Code
 
@@ -260,9 +262,9 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 
 		structName := utils.SnakeToCamel(name)
 		src.Type().Id(structName).Struct(fields...).Line()
-		return stmt.Id(structName)
+		return stmt.Op("*").Id(structName)
 	case *ast.OptionalTypeLiteral:
-		return eval(src, node.TypeExpression, stmt, name)
+		return eval(src, node.TypeExpression, stmt.Op("*"), name)
 	}
 	return nil
 }

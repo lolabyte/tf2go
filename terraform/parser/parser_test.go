@@ -131,7 +131,7 @@ func TestParsingObjectTypeLiteral(t *testing.T) {
 		t.Errorf("obj.KVPairs has wrong length. got=%d", len(objSpec.KVPairs))
 	}
 
-	for key, _ := range objSpec.KVPairs {
+	for key := range objSpec.KVPairs {
 		assert.Equal(t, objSpec.KVPairs[key].String(), expectedObjSpec[key.String()])
 	}
 }

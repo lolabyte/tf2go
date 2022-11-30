@@ -53,9 +53,9 @@ type Bool struct {
 	Value bool
 }
 
-func (nl *Bool) expressionNode()      {}
-func (nl *Bool) TokenLiteral() string { return nl.Token.Literal }
-func (nl *Bool) String() string       { return nl.Token.Literal }
+func (b *Bool) expressionNode()      {}
+func (b *Bool) TokenLiteral() string { return b.Token.Literal }
+func (b *Bool) String() string       { return b.Token.Literal }
 
 type NumberLiteral struct {
 	Token token.Token // token.NUMBER
@@ -71,9 +71,9 @@ type StringLiteral struct {
 	Value string
 }
 
-func (nl *StringLiteral) expressionNode()      {}
-func (nl *StringLiteral) TokenLiteral() string { return nl.Token.Literal }
-func (nl *StringLiteral) String() string       { return nl.Token.Literal }
+func (sl *StringLiteral) expressionNode()      {}
+func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
+func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
 type ListLiteral struct {
 	Token    token.Token // token.RIGHT_SQUARE_BRACE
@@ -198,6 +198,14 @@ func (os *OptionalTypeLiteral) String() string {
 
 	return out.String()
 }
+
+type AnyTypeLiteral struct {
+	Token token.Token // token.BOOL
+}
+
+func (at *AnyTypeLiteral) expressionNode()      {}
+func (at *AnyTypeLiteral) TokenLiteral() string { return at.Token.Literal }
+func (at *AnyTypeLiteral) String() string       { return at.Token.Literal }
 
 type BoolTypeLiteral struct {
 	Token token.Token // token.BOOL

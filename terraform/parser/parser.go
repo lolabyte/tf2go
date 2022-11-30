@@ -39,6 +39,7 @@ func New(l *lexer.Lexer) *TypeParser {
 	p.registerPrefix(token.LEFT_SQUARE_BRACE, p.parseListLiteral)
 	p.registerPrefix(token.LEFT_CURLY_BRACE, p.parseObjectLiteral)
 
+	p.registerPrefix(token.ANY_TYPE, p.parseAnyTypeLiteral)
 	p.registerPrefix(token.BOOL_TYPE, p.parseBoolTypeLiteral)
 	p.registerPrefix(token.NUMBER_TYPE, p.parseNumberTypeLiteral)
 	p.registerPrefix(token.STRING_TYPE, p.parseStringTypeLiteral)
@@ -223,6 +224,10 @@ func (p *TypeParser) parseObjectLiteral() ast.Expression {
 
 	p.nextToken()
 	return obj
+}
+
+func (p *TypeParser) parseAnyTypeLiteral() ast.Expression {
+	return &ast.AnyTypeLiteral{Token: p.currToken}
 }
 
 func (p *TypeParser) parseBoolTypeLiteral() ast.Expression {

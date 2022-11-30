@@ -20,6 +20,7 @@ const (
 	TRUE  = "TRUE"
 
 	// Scalar type keywords
+	ANY_TYPE    = "ANY_TYPE"
 	BOOL_TYPE   = "BOOL_TYPE"
 	NUMBER_TYPE = "NUMBER_TYPE"
 	STRING_TYPE = "STRING_TYPE"
@@ -56,6 +57,7 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"any":      ANY_TYPE,
 	"bool":     BOOL_TYPE,
 	"number":   NUMBER_TYPE,
 	"string":   STRING_TYPE,
