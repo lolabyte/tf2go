@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	j "github.com/dave/jennifer/jen"
+	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/terraform-config-inspect/tfconfig"
 	"github.com/lolabyte/tf2go/terraform/ast"
 	tfLexer "github.com/lolabyte/tf2go/terraform/lexer"
@@ -15,8 +16,19 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageName string, embedDir string) error {
-	module, diags := tfconfig.LoadModule(tfModulePath)
+func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packageName string, embedDir string) error {
+	dir, err := os.MkdirTemp("", packageName)
+	if err != nil {
+		return err
+	}
+
+	moduleDir, err := getInputModule(inputModulePath, dir)
+	if err != nil {
+		return fmt.Errorf("unable to get module from path %s: %v", dir, err)
+	}
+	defer os.RemoveAll(dir)
+
+	module, diags := tfconfig.LoadModule(moduleDir)
 	if diags.HasErrors() {
 		return diags.Err()
 	}
@@ -185,7 +197,7 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 	).Line()
 
 	// Copy the Terraform module to the go:embed path
-	err := os.MkdirAll(path.Join(outPackageDir, embedDir), os.ModePerm)
+	err = os.MkdirAll(path.Join(outPackageDir, embedDir), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create output dir: %v", err)
 	}
@@ -195,9 +207,24 @@ func GenerateTFModulePackage(tfModulePath string, outPackageDir string, packageN
 		return fmt.Errorf("failed to save module to file: %v", err)
 	}
 
-	copyDirectory(tfModulePath, path.Join(outPackageDir, embedDir))
+	copyDirectory(moduleDir, path.Join(outPackageDir, embedDir))
 
 	return nil
+}
+
+func getInputModule(src, dst string) (string, error) {
+	_, err := os.Stat(src)
+	if !os.IsNotExist(err) {
+		return src, nil
+	}
+
+	client := getter.Client{
+		Src:  src,
+		Dst:  dst,
+		Pwd:  dst,
+		Mode: getter.ClientModeDir,
+	}
+	return dst, client.Get()
 }
 
 func copyDirectory(srcDir string, destDir string) {
