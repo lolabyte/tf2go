@@ -39,6 +39,7 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
 	generateVarStructs(out, module)
+	generateOutputStruct(out, module)
 
 	out.Func().Params(
 		j.Id("v").Id("Variables"),
@@ -314,6 +315,10 @@ func structFieldNameForVar(v *tfconfig.Variable) string {
 	return utils.SnakeToCamel(v.Name)
 }
 
+func structFieldNameForOutput(v *tfconfig.Output) string {
+	return utils.SnakeToCamel(v.Name)
+}
+
 func generateVarStructs(src *j.File, mod *tfconfig.Module) {
 	var defaultVarStructFields []j.Code
 	for _, v := range mod.Variables {
@@ -332,4 +337,15 @@ func generateVarStructs(src *j.File, mod *tfconfig.Module) {
 	}
 
 	src.Type().Id("Variables").Struct(defaultVarStructFields...).Line()
+}
+
+func generateOutputStruct(src *j.File, mod *tfconfig.Module) {
+	var outputStructFields []j.Code
+	for _, v := range mod.Outputs {
+		fieldName := structFieldNameForOutput(v)
+		tag := structTagsForField(v.Name)
+		field := j.Id(fieldName).Qual("json", "RawMessage").Tag(tag)
+		outputStructFields = append(outputStructFields, field)
+	}
+	src.Type().Id("Outputs").Struct(outputStructFields...).Line()
 }
