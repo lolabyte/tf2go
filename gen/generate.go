@@ -344,7 +344,7 @@ func generateOutputStruct(src *j.File, mod *tfconfig.Module) {
 	for _, v := range mod.Outputs {
 		fieldName := structFieldNameForOutput(v)
 		tag := structTagsForField(v.Name)
-		field := j.Id(fieldName).Qual("json", "RawMessage").Tag(tag)
+		field := j.Id(fieldName).Op("json.RawMessage").Tag(tag)
 		outputStructFields = append(outputStructFields, field)
 	}
 	src.Type().Id("Outputs").Struct(outputStructFields...).Line()
