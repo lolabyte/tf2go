@@ -207,8 +207,29 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 	).Id("Output").Params(
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputOption"),
-	).Parens(j.List(j.Map(j.String()).Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputMeta"), j.Error())).Block(
-		j.Return(j.Id("m").Dot("TF").Dot("Output").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
+	).Parens(j.List(j.Op("*").Id("Outputs"), j.Error())).Block(
+		j.List(j.Id("out"), j.Err()).Op(":=").Id("m").Dot("TF").Dot("Output").Call(j.Id("ctx"), j.Id("opts").Op("...")),
+		j.If(j.Err().Op("!=").Nil()).Block(
+			j.Return(j.Nil(), j.Err()),
+		).Line(),
+
+		j.Id("outJson").Op(":=").Make(j.Map(j.String()).Qual("encoding/json", "RawMessage")),
+		j.For(j.List(j.Id("k"), j.Id("v"))).Op(":=").Range().Id("out").Block(
+			j.Id("outJson").Index(j.Id("k")).Op("=").Id("v").Dot("Value"),
+		).Line(),
+
+		j.List(j.Id("b"), j.Err()).Op(":=").Qual("encoding/json", "Marshal").Call(j.Id("outJson")),
+		j.If(j.Err().Op("!=").Nil()).Block(
+			j.Return(j.Nil(), j.Err()),
+		).Line(),
+
+		j.Var().Id("outputs").Id("Outputs"),
+		j.Err().Op("=").Qual("encoding/json", "Unmarshal").Call(j.Id("b"), j.Op("&").Id("outputs")),
+		j.If(j.Err().Op("!=").Nil()).Block(
+			j.Return(j.Nil(), j.Err()),
+		).Line(),
+
+		j.Return(j.Op("&").Id("outputs"), j.Nil()),
 	).Line()
 
 	// Copy the Terraform module to the go:embed path
@@ -367,7 +388,7 @@ func generateOutputStruct(src *j.File, mod *tfconfig.Module) {
 	for _, v := range mod.Outputs {
 		fieldName := structFieldNameForOutput(v)
 		tag := structTagsForField(v.Name)
-		field := j.Id(fieldName).Op("json.RawMessage").Tag(tag)
+		field := j.Id(fieldName).Qual("encoding/json", "RawMessage").Tag(tag)
 		outputStructFields = append(outputStructFields, field)
 	}
 	src.Type().Id("Outputs").Struct(outputStructFields...).Line()
