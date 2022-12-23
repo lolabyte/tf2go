@@ -126,7 +126,7 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "InitOption"),
 	).Error().Block(
-		j.List(j.Id("entries"), j.Err()).Op(":=").Id("tfModule").Dot("ReadDir").Call(j.Lit("terraform")),
+		j.List(j.Id("entries"), j.Err()).Op(":=").Id("tfModule").Dot("ReadDir").Call(j.Lit(embedDir)),
 		j.If(
 			j.Err().Op("!=").Nil(),
 		).Block(
@@ -134,23 +134,37 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		).Line(),
 
 		j.For(j.List(j.Id("_"), j.Id("e"))).Op(":=").Range().Id("entries").Block(
-			j.Id("fpath").Op(":=").Qual("path", "Join").Call(j.Lit("terraform"), j.Id("e").Dot("Name").Call()),
-			j.List(j.Id("in"), j.Err()).Op(":=").Id("tfModule").Dot("ReadFile").Call(j.Id("fpath")),
+			j.Id("fpath").Op(":=").Qual("path", "Join").Call(j.Lit(embedDir), j.Id("e").Dot("Name").Call()),
 			j.If(
-				j.Err().Op("!=").Nil(),
+				j.Id("e").Dot("IsDir").Call(),
 			).Block(
-				j.Panic(j.Err()),
-			).Line(),
+				j.Err().Op("=").Qual("os", "Mkdir").Call(
+					j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
+					j.Qual("os", "ModePerm"),
+				),
+				j.If(
+					j.Err().Op("!=").Nil(),
+				).Block(
+					j.Panic(j.Err()),
+				),
+			).Else().Block(
+				j.List(j.Id("in"), j.Err()).Op(":=").Id("tfModule").Dot("ReadFile").Call(j.Id("fpath")),
+				j.If(
+					j.Err().Op("!=").Nil(),
+				).Block(
+					j.Panic(j.Err()),
+				).Line(),
 
-			j.Err().Op("=").Qual("os", "WriteFile").Call(
-				j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
-				j.Id("in"),
-				j.Qual("os", "ModePerm"),
-			),
-			j.If(
-				j.Err().Op("!=").Nil(),
-			).Block(
-				j.Panic(j.Err()),
+				j.Err().Op("=").Qual("os", "WriteFile").Call(
+					j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
+					j.Id("in"),
+					j.Qual("os", "ModePerm"),
+				),
+				j.If(
+					j.Err().Op("!=").Nil(),
+				).Block(
+					j.Panic(j.Err()),
+				),
 			),
 		).Line(),
 
@@ -277,7 +291,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 	case *ast.ListTypeLiteral:
 		return eval(src, node.TypeExpression, stmt.Index(), name)
 	case *ast.MapTypeLiteral:
-		return eval(src, node.TypeExpression, stmt.Op("*").Map(j.String()), name)
+		return eval(src, node.TypeExpression, stmt.Map(j.String()), name)
 	case *ast.ObjectTypeLiteral:
 		var fields []j.Code
 
@@ -290,9 +304,18 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 
 		structName := utils.SnakeToCamel(name)
 		src.Type().Id(structName).Struct(fields...).Line()
-		return stmt.Op("*").Id(structName)
+		return stmt.Id(structName)
 	case *ast.OptionalTypeLiteral:
-		return eval(src, node.TypeExpression, stmt.Op("*"), name)
+		switch node.TypeExpression.(type) {
+		case *ast.ObjectLiteral:
+			return eval(src, node.TypeExpression, stmt, name)
+		case *ast.MapTypeLiteral:
+			return eval(src, node.TypeExpression, stmt, name)
+		case *ast.ListTypeLiteral:
+			return eval(src, node.TypeExpression, stmt, name)
+		default:
+			return eval(src, node.TypeExpression, stmt.Op("*"), name)
+		}
 	}
 	return nil
 }
