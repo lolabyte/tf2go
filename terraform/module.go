@@ -11,12 +11,9 @@ type Module interface {
 	Init(ctx context.Context, opts ...tfexec.InitOption) error
 	Apply(ctx context.Context, opts ...tfexec.ApplyOption) error
 	Destroy(ctx context.Context, opts ...tfexec.DestroyOption) error
-	Plan(ctx context.Context, opts ...tfexec.PlanOption) error
+	Plan(ctx context.Context, opts ...tfexec.PlanOption) (bool, error)
 	Output(ctx context.Context, opts ...tfexec.OutOption) (map[string]tfexec.OutputMeta, error)
 	Vars() TFVars
-	//Show(ctx context.Context, opts ...tfexec.ShowOption) (*tfjson.State, error)
-	//ShowStateFile(ctx context.Context, statePath string, opts ...tfexec.ShowOption) (*tfjson.State, error)
-	//ShowPlanFile(ctx context.Context, planPath string, opts ...tfexec.ShowOption) (*tfjson.Plan, error)
 }
 
 type TFVars interface {
