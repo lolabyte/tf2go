@@ -117,7 +117,7 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		j.Id("m").Op("*").Id(structName),
 	).Id("Vars").Params().Qual("github.com/lolabyte/tf2go/terraform", "TFVars").Block(
 		j.Return(j.Id("m").Dot("V")),
-	)
+	).Line()
 
 	// Generate Init()
 	out.Func().Params(
@@ -126,46 +126,11 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "InitOption"),
 	).Error().Block(
-		j.List(j.Id("entries"), j.Err()).Op(":=").Id("tfModule").Dot("ReadDir").Call(j.Lit(embedDir)),
+		j.Err().Op(":=").Qual("github.com/lolabyte/tf2go/utils", "CopyDirFromEmbedFS").Call(j.Id("tfModule"), j.Lit(embedDir), j.Id("m").Dot("TF").Dot("WorkingDir").Call()),
 		j.If(
 			j.Err().Op("!=").Nil(),
 		).Block(
 			j.Panic(j.Err()),
-		).Line(),
-
-		j.For(j.List(j.Id("_"), j.Id("e"))).Op(":=").Range().Id("entries").Block(
-			j.Id("fpath").Op(":=").Qual("path", "Join").Call(j.Lit(embedDir), j.Id("e").Dot("Name").Call()),
-			j.If(
-				j.Id("e").Dot("IsDir").Call(),
-			).Block(
-				j.Err().Op("=").Qual("os", "Mkdir").Call(
-					j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
-					j.Qual("os", "ModePerm"),
-				),
-				j.If(
-					j.Err().Op("!=").Nil(),
-				).Block(
-					j.Panic(j.Err()),
-				),
-			).Else().Block(
-				j.List(j.Id("in"), j.Err()).Op(":=").Id("tfModule").Dot("ReadFile").Call(j.Id("fpath")),
-				j.If(
-					j.Err().Op("!=").Nil(),
-				).Block(
-					j.Panic(j.Err()),
-				).Line(),
-
-				j.Err().Op("=").Qual("os", "WriteFile").Call(
-					j.Id("path").Dot("Join").Call(j.Id("m").Dot("TF").Dot("WorkingDir").Call(), j.Id("e").Dot("Name").Call()),
-					j.Id("in"),
-					j.Qual("os", "ModePerm"),
-				),
-				j.If(
-					j.Err().Op("!=").Nil(),
-				).Block(
-					j.Panic(j.Err()),
-				),
-			),
 		).Line(),
 
 		j.Return(j.Id("m").Dot("TF").Dot("Init").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
@@ -325,7 +290,7 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 
 		structName := utils.SnakeToCamel(name)
 		src.Type().Id(structName).Struct(fields...).Line()
-		return stmt.Id(structName)
+		return stmt.Op("*").Id(structName)
 	case *ast.OptionalTypeLiteral:
 		switch node.TypeExpression.(type) {
 		case *ast.ObjectLiteral:

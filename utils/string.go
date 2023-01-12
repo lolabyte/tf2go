@@ -1,6 +1,8 @@
 package utils
 
-import "strings"
+import (
+	"strings"
+)
 
 func SnakeToCamel(s string) string {
 	var buf []byte
