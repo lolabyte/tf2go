@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 
 	j "github.com/dave/jennifer/jen"
 	"github.com/hashicorp/go-getter"
@@ -260,6 +261,11 @@ func copyDirectory(srcDir string, destDir string) {
 	}
 }
 
+type kvpair struct {
+	name  string
+	value ast.Expression
+}
+
 func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Statement {
 	switch node := node.(type) {
 	case *ast.Type:
@@ -281,11 +287,17 @@ func eval(src *j.File, node ast.Node, stmt *j.Statement, name string) *j.Stateme
 	case *ast.ObjectTypeLiteral:
 		var fields []j.Code
 
+		var kvpairs []kvpair
 		for k, v := range node.ObjectSpec.(*ast.ObjectLiteral).KVPairs {
-			structName := utils.SnakeToCamel(k.String())
-			tag := structTagsForField(k.String())
+			kvpairs = append(kvpairs, kvpair{k.String(), v})
+		}
+		sort.Slice(kvpairs, func(i, j int) bool { return kvpairs[i].name < kvpairs[j].name })
+
+		for _, kv := range kvpairs {
+			structName := utils.SnakeToCamel(kv.name)
+			tag := structTagsForField(kv.name)
 			field := j.Id(structName)
-			fields = append(fields, eval(src, v, field, k.String()).Tag(tag))
+			fields = append(fields, eval(src, kv.value, field, kv.name).Tag(tag))
 		}
 
 		structName := utils.SnakeToCamel(name)
@@ -330,7 +342,15 @@ func structFieldNameForOutput(v *tfconfig.Output) string {
 
 func generateVarStructs(src *j.File, mod *tfconfig.Module) {
 	var defaultVarStructFields []j.Code
+
+	// Sort alphabetically
+	var variables []*tfconfig.Variable
 	for _, v := range mod.Variables {
+		variables = append(variables, v)
+	}
+	sort.Slice(variables, func(i, j int) bool { return variables[i].Name < variables[j].Name })
+
+	for _, v := range variables {
 		if v.Type == "" {
 			v.Type = "string"
 		}
@@ -350,7 +370,15 @@ func generateVarStructs(src *j.File, mod *tfconfig.Module) {
 
 func generateOutputStruct(src *j.File, mod *tfconfig.Module) {
 	var outputStructFields []j.Code
+
+	// Sort alphabetically
+	var outputs []*tfconfig.Output
 	for _, v := range mod.Outputs {
+		outputs = append(outputs, v)
+	}
+	sort.Slice(outputs, func(i, j int) bool { return outputs[i].Name < outputs[j].Name })
+
+	for _, v := range outputs {
 		fieldName := structFieldNameForOutput(v)
 		tag := structTagsForField(v.Name)
 		field := j.Id(fieldName).Qual("encoding/json", "RawMessage").Tag(tag)
