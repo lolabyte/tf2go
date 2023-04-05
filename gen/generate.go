@@ -65,6 +65,10 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		j.Return(j.Id("outfile"), j.Nil()),
 	).Line()
 
+	out.Func().Id("TFModuleEmbedFS").Params().Qual("embed", "FS").Block(
+		j.Return(j.Id("tfModule")),
+	)
+
 	// Generate module struct
 	structName := utils.SnakeToCamel(packageName)
 	out.Type().Id(structName).Struct(
