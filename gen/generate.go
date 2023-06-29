@@ -54,12 +54,12 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 			j.Return(j.Lit(""), j.Err()),
 		).Line(),
 
-		j.Id("outfile").Op(":=").Qual("path", "Join").Call(j.Id("workingDir"), j.Lit("terraform.tfvar.json")),
+		j.Id("outfile").Op(":=").Qual("path", "Join").Call(j.Id("workingDir"), j.Lit("terraform.tfvars.json")),
 		j.Err().Op("=").Qual("os", "WriteFile").Call(j.Id("outfile"), j.Id("b"), j.Qual("os", "ModePerm")),
 		j.If(
 			j.Err().Op("!=").Nil(),
 		).Block(
-			j.Return(j.Lit(""), j.Qual("fmt", "Errorf").Call(j.Lit("failed to write terraform.tfvar.json: %v"), j.Err())),
+			j.Return(j.Lit(""), j.Qual("fmt", "Errorf").Call(j.Lit("failed to write terraform.tfvars.json: %v"), j.Err())),
 		).Line(),
 
 		j.Return(j.Id("outfile"), j.Nil()),
