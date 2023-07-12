@@ -40,7 +40,6 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 	out.Var().Id("tfModule").Qual("embed", "FS")
 
 	generateVarStructs(out, module)
-	generateOutputStruct(out, module)
 
 	out.Func().Params(
 		j.Id("v").Id("Variables"),
@@ -60,6 +59,31 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 			j.Err().Op("!=").Nil(),
 		).Block(
 			j.Return(j.Lit(""), j.Qual("fmt", "Errorf").Call(j.Lit("failed to write terraform.tfvars.json: %v"), j.Err())),
+		).Line(),
+
+		j.Return(j.Id("outfile"), j.Nil()),
+	).Line()
+
+	generateOutputStruct(out, module)
+
+	out.Func().Params(
+		j.Id("o").Id("Outputs"),
+	).Id("WriteTFOutputJSON").Params(
+		j.Id("workingDir").String(),
+	).Parens(j.List(j.String(), j.Error())).Block(
+		j.List(j.Id("b"), j.Err()).Op(":=").Qual("encoding/json", "Marshal").Call(j.Id("o")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Return(j.Lit(""), j.Err()),
+		).Line(),
+
+		j.Id("outfile").Op(":=").Qual("path", "Join").Call(j.Id("workingDir"), j.Lit("output.json")),
+		j.Err().Op("=").Qual("os", "WriteFile").Call(j.Id("outfile"), j.Id("b"), j.Qual("os", "ModePerm")),
+		j.If(
+			j.Err().Op("!=").Nil(),
+		).Block(
+			j.Return(j.Lit(""), j.Qual("fmt", "Errorf").Call(j.Lit("failed to write output.json: %v"), j.Err())),
 		).Line(),
 
 		j.Return(j.Id("outfile"), j.Nil()),
@@ -177,7 +201,7 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 	).Id("Output").Params(
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputOption"),
-	).Parens(j.List(j.Op("*").Id("Outputs"), j.Error())).Block(
+	).Parens(j.List(j.Qual("github.com/lolabyte/tf2go/terraform", "TFOutput"), j.Error())).Block(
 		j.List(j.Id("out"), j.Err()).Op(":=").Id("m").Dot("TF").Dot("Output").Call(j.Id("ctx"), j.Id("opts").Op("...")),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Return(j.Nil(), j.Err()),
@@ -200,6 +224,18 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 		).Line(),
 
 		j.Return(j.Op("&").Id("outputs"), j.Nil()),
+	).Line()
+
+	// Generate Import()
+	out.Func().Params(
+		j.Id("m").Op("*").Id(structName),
+	).Id("Import").Params(
+		j.Id("ctx").Qual("context", "Context"),
+		j.Id("address").String(),
+		j.Id("id").String(),
+		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "ImportOption"),
+	).Parens(j.Error()).Block(
+		j.Return(j.Id("m").Dot("TF").Dot("Import").Call(j.Id("ctx"), j.Id("address"), j.Id("id"), j.Id("opts").Op("..."))),
 	).Line()
 
 	// Copy the Terraform module to the go:embed path
