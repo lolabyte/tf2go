@@ -201,7 +201,7 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 	).Id("Output").Params(
 		j.Id("ctx").Qual("context", "Context"),
 		j.Id("opts").Op("...").Qual("github.com/hashicorp/terraform-exec/tfexec", "OutputOption"),
-	).Parens(j.List(j.Op("*").Id("Outputs"), j.Error())).Block(
+	).Parens(j.List(j.Qual("github.com/lolabyte/tf2go/terraform", "TFOutput"), j.Error())).Block(
 		j.List(j.Id("out"), j.Err()).Op(":=").Id("m").Dot("TF").Dot("Output").Call(j.Id("ctx"), j.Id("opts").Op("...")),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Return(j.Nil(), j.Err()),
