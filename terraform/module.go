@@ -12,7 +12,7 @@ type Module interface {
 	Apply(ctx context.Context, opts ...tfexec.ApplyOption) error
 	Destroy(ctx context.Context, opts ...tfexec.DestroyOption) error
 	Plan(ctx context.Context, opts ...tfexec.PlanOption) (bool, error)
-	Output(ctx context.Context, opts ...tfexec.OutOption) (TFOutput, error)
+	Output(ctx context.Context, opts ...tfexec.OutputOption) (TFOutput, error)
 	Import(ctx context.Context, address string, id string, opts ...tfexec.ImportOption) error
 	Vars() TFVars
 }
