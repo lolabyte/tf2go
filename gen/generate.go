@@ -162,6 +162,11 @@ func GenerateTFModulePackage(inputModulePath string, outPackageDir string, packa
 			j.Panic(j.Err()),
 		).Line(),
 
+		j.Id("m").Dot("TF").Dot("SetLogger").Call(j.Qual("log", "New").Call(j.Qual("io", "Discard"), j.Lit(""), j.Lit(0))),
+		j.Defer().Func().Call().Block(
+			j.Id("m").Dot("TF").Dot("SetLogger").Call(j.Qual("log", "Default").Call()),
+		).Call(),
+
 		j.Return(j.Id("m").Dot("TF").Dot("Init").Call(j.Id("ctx"), j.Id("opts").Op("..."))),
 	).Line()
 
